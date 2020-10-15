@@ -55,7 +55,7 @@ private:
     std::thread _thread;
 
     std::atomic<int> _n_workers;
-    const int _max_workers = 5;
+    int _max_workers = 5;
 
     std::condition_variable _check_current_workers;
     std::mutex _thread_stopped;
