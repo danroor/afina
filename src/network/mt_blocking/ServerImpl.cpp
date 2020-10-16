@@ -98,6 +98,7 @@ void ServerImpl::Stop() {
 void ServerImpl::Join() {
 	assert(_thread.joinable());
 	_thread.join();
+	//waiting for the OnRun thread to finish
 }
 
 // See Server.h
@@ -138,16 +139,13 @@ void ServerImpl::OnRun() {
 		{
 			std::unique_lock<std::mutex> l(mut);
 			if (_sockets.size() < _max_workers && _running.load()) {
-				try {
-					// running new worker
-					std::thread(&ServerImpl::worker, this, client_socket).detach();
-					// add new descriptor to the set
-					_sockets.emplace(client_socket);
-
-				} catch (...) {
-					close(client_socket);
-					throw std::runtime_error("Unable to start worker. Closing client socket");
-				}
+				// running new worker
+				std::thread(&ServerImpl::worker, this, client_socket).detach();
+				// add new descriptor to the set
+				_sockets.emplace(client_socket);
+			} else {
+				close(client_socket);
+				throw std::runtime_error("Unable to start worker (max. amount of workers reached or the server is shutting down). Closing client socket");
 			}
 		}
 	}
@@ -159,6 +157,7 @@ void ServerImpl::OnRun() {
 	_check_current_workers.wait(l, 
 		[this] { 
 			return this->_sockets.empty(); 
+			//waiting for workers to complete the commands
 		}
 
 	);
@@ -264,6 +263,7 @@ void ServerImpl::worker(int client_socket) {
 	
 	if (!_running.load() && _sockets.empty()) {
 		_check_current_workers.notify_one();
+		//waking up OnRun thread
 	}
 	
 }
