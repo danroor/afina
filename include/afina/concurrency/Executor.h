@@ -16,6 +16,9 @@ namespace Concurrency {
  * # Thread pool
  */
 class Executor {
+
+public:
+
     enum class State {
         // Threadpool is fully operational, tasks could be added and get executed
         kRun,
@@ -71,7 +74,7 @@ private:
     /**
      * Main function that all pool threads are running. It polls internal task queue and execute tasks
      */
-    friend void perform(Executor *executor);
+    void perform();
 
     /**
      * Mutex to protect state below from concurrent modification
