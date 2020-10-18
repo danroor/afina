@@ -102,5 +102,4 @@ private:
 } // namespace Concurrency
 } // namespace Afina
 
-
 #endif // AFINA_CONCURRENCY_EXECUTOR_H
