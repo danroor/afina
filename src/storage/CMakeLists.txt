@@ -1,6 +1,8 @@
 # build service
 set(SOURCE_FILES
     SimpleLRU.cpp
+    StripedLRU.cpp
+    ThreadSafeSimpleLRU.cpp
 )
 
 add_library(Storage ${SOURCE_FILES})
