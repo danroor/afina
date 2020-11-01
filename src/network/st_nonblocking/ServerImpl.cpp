@@ -91,12 +91,14 @@ void ServerImpl::Stop() {
     if (eventfd_write(_event_fd, 1)) {
         throw std::runtime_error("Failed to wakeup workers");
     }
+    shutdown(_server_socket, SHUT_RDWR);
 }
 
 // See Server.h
 void ServerImpl::Join() {
     // Wait for work to be complete
     _work_thread.join();
+    close(_server_socket);
 }
 
 // See ServerImpl.h
@@ -138,7 +140,6 @@ void ServerImpl::OnRun() {
                 continue;
             }
 
-            // That is some connection!
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
 
             auto old_mask = pc->_event.events;
@@ -146,8 +147,7 @@ void ServerImpl::OnRun() {
                 pc->OnError();
             } else if (current_event.events & EPOLLRDHUP) {
                 pc->OnClose();
-            } else {
-                // Depends on what connection wants...
+            } else {.
                 if (current_event.events & EPOLLIN) {
                     pc->DoRead();
                 }
@@ -156,7 +156,6 @@ void ServerImpl::OnRun() {
                 }
             }
 
-            // Does it alive?
             if (!pc->isAlive()) {
                 if (epoll_ctl(epoll_descr, EPOLL_CTL_DEL, pc->_socket, &pc->_event)) {
                     _logger->error("Failed to delete connection from epoll");
@@ -207,7 +206,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
         }
 
         // Register the new FD to be monitored by epoll.
-        Connection *pc = new(std::nothrow) Connection(infd);
+        Connection *pc = new (std::nothrow) Connection(infd, pStorage, _logger);
         if (pc == nullptr) {
             throw std::runtime_error("Failed to allocate connection");
         }

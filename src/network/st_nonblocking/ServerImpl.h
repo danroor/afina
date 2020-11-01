@@ -51,7 +51,7 @@ private:
     // Socket to accept new connection on, shared between acceptors
     int _server_socket;
 
-    // Curstom event "device" used to wakeup workers
+    // Custom event "device" used to wake up workers
     int _event_fd;
 
     // IO thread
