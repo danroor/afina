@@ -83,8 +83,8 @@ void Worker::OnRun() {
         for (int i = 0; i < nmod; i++) {
             struct epoll_event &current_event = mod_list[i];
 
-            // nullptr is used by server for event_fd "interface", if we got here then server
-            // signals us to wakeup to process some state change, ignore it in INNER loop, react
+            // nullptr is used by server for event_fd "interface", getting here means that the server
+            // sent us a signal to wakeup to process some state change, ignore it in INNER loop, react
             // on changes in OUTHER loop
             if (current_event.data.ptr == nullptr) {
                 continue;
@@ -128,7 +128,6 @@ void Worker::OnRun() {
                 delete pconn;
             }
         }
-        // TODO: Select timeout...
     }
     _logger->warn("Worker stopped");
 }

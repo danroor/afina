@@ -29,8 +29,8 @@ ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Loggi
 
 // See Server.h
 ServerImpl::~ServerImpl() {
-    ServerImpl::Stop();
-    ServerImpl::Join();
+    Stop();
+    Join();
 }
 
 // See Server.h
@@ -94,14 +94,14 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
 
     _workers.reserve(n_workers);
     for (int i = 0; i < n_workers; i++) {
-        _workers.emplace_back(pStorage, pLogging, this);
+        _workers.emplace_back(pStorage, pLogging);
         _workers.back().Start(_data_epoll_fd);
     }
 
     // Start acceptors
     _acceptors.reserve(n_acceptors);
     for (int i = 0; i < n_acceptors; i++) {
-        _acceptors.emplace_back(&ServerImpl::OnRun, this);
+        _acceptors.emplace_back(&ServerImpl::OnRun);
     }
 }
 
