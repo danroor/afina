@@ -32,7 +32,12 @@ namespace STnonblock {
 ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
 
 // See Server.h
-ServerImpl::~ServerImpl() {}
+ServerImpl::~ServerImpl() {
+    Stop();
+    if (_work_thread.joinable()) {
+        Join();        
+    }
+}
 
 // See Server.h
 void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) {
@@ -70,6 +75,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
     }
 
     make_socket_non_blocking(_server_socket);
+
     if (listen(_server_socket, 5) == -1) {
         close(_server_socket);
         throw std::runtime_error("Socket listen() failed: " + std::string(strerror(errno)));
@@ -147,7 +153,7 @@ void ServerImpl::OnRun() {
                 pc->OnError();
             } else if (current_event.events & EPOLLRDHUP) {
                 pc->OnClose();
-            } else {.
+            } else {
                 if (current_event.events & EPOLLIN) {
                     pc->DoRead();
                 }
@@ -186,7 +192,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
         socklen_t in_len;
 
         // No need to make these sockets non blocking since accept4() takes care of it.
-        in_len = sizeof in_addr;
+        in_len = sizeof(in_addr);
         int infd = accept4(_server_socket, &in_addr, &in_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (infd == -1) {
             if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {

@@ -46,8 +46,8 @@ private:
     char _read_buffer[4096];
     size_t _read_bytes;
     int _head_written_count;
-    std::shared_ptr<spdlog::logger> _logger;
     std::shared_ptr<Afina::Storage> _pStorage;
+    std::shared_ptr<spdlog::logger> _logger;
 
     std::size_t _arg_remains;
     Protocol::Parser _parser;

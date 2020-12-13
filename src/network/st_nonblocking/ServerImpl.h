@@ -58,6 +58,8 @@ private:
     std::thread _work_thread;
 };
 
+void make_socket_non_blocking(int socket_dscr);
+
 } // namespace STnonblock
 } // namespace Network
 } // namespace Afina
