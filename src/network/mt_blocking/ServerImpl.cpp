@@ -82,6 +82,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 
     _running.store(true);
     _thread = std::thread(&ServerImpl::OnRun, this);
+
 }
 
 // See Server.h

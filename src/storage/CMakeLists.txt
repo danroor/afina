@@ -1,6 +1,7 @@
 # build service
 set(SOURCE_FILES
     SimpleLRU.cpp
+    StripedLRU.cpp
     ThreadSafeSimpleLRU.cpp
 )
 
