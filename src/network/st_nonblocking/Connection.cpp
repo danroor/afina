@@ -56,7 +56,7 @@ void Connection::DoRead() {
                         }
                     } catch (std::runtime_error &ex) {
                         _output_queue.push_back("(?^u:ERROR)");
-                        _event.events = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLOUT;
+                        _event.events |= EPOLLOUT;
                         throw std::runtime_error(ex.what());
                     }
 
@@ -107,7 +107,7 @@ void Connection::DoRead() {
         _end_reading = true;
         if (_read_bytes == 0) {
             _logger->debug("Connection closed");
-        } else {
+        } else if (errno != EINTR && errno != EAGAIN) {
             throw std::runtime_error(std::string(strerror(errno)));
         }
     } catch (std::runtime_error &ex) {
@@ -120,7 +120,7 @@ void Connection::DoRead() {
 void Connection::DoWrite() {
     _logger->debug("Do write on {} socket", _socket);
     struct iovec tmp[_output_queue.size()];
-    size_t i;
+    size_t i = 0;
     for (i = 0; i < _output_queue.size(); ++i) {
         tmp[i].iov_base = &(_output_queue[i][0]);
         tmp[i].iov_len = _output_queue[i].size();
@@ -132,7 +132,7 @@ void Connection::DoWrite() {
     int written_bytes = writev(_socket, tmp, i);
 
     if (written_bytes <= 0) {
-        if (errno != EINTR && errno != EAGAIN && errno != EPIPE) {
+        if (errno != EINTR && errno != EAGAIN) {
             _is_alive = false;
             throw std::runtime_error("Failed to send response");
         }

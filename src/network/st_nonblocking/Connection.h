@@ -24,6 +24,11 @@ public:
         std::memset(_read_buffer, 0, 4096);
     }
 
+    ~Connection() {
+        OnClose();
+        shutdown(_socket, SHUT_RDWR);
+    }
+
     inline bool isAlive() const { return _is_alive; }
 
     void Start();

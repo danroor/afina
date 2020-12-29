@@ -98,6 +98,12 @@ void ServerImpl::Stop() {
         throw std::runtime_error("Failed to wakeup workers");
     }
     shutdown(_server_socket, SHUT_RDWR);
+
+    for (sock : connection_storage) {
+    	delete sock;
+    }
+
+    connection_storage.clear();
 }
 
 // See Server.h
@@ -147,6 +153,7 @@ void ServerImpl::OnRun() {
             }
 
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
+            connection_storage.push_back(pc);
 
             auto old_mask = pc->_event.events;
             if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
@@ -167,22 +174,28 @@ void ServerImpl::OnRun() {
                     _logger->error("Failed to delete connection from epoll");
                 }
 
-                close(pc->_socket);
-                pc->OnClose();
-
+                connection_storage.erase(pc);
                 delete pc;
+
             } else if (pc->_event.events != old_mask) {
                 if (epoll_ctl(epoll_descr, EPOLL_CTL_MOD, pc->_socket, &pc->_event)) {
                     _logger->error("Failed to change connection event mask");
 
-                    close(pc->_socket);
-                    pc->OnClose();
-
+                    connection_storage.erase(pc);
                     delete pc;
+                    
                 }
             }
         }
     }
+
+    for (auto single_connection : connection_storage){
+        close(single_connection->_socket);
+        single_connection->OnClose();
+        delete single_connection;
+    }
+    connection_storage.clear();
+
     _logger->warn("Acceptor stopped");
 }
 

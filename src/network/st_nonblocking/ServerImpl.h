@@ -56,9 +56,8 @@ private:
 
     // IO thread
     std::thread _work_thread;
+    std::vector<Connection *> connection_storage;
 };
-
-void make_socket_non_blocking(int socket_dscr);
 
 } // namespace STnonblock
 } // namespace Network
