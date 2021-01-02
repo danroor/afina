@@ -34,9 +34,7 @@ ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Loggi
 // See Server.h
 ServerImpl::~ServerImpl() {
     Stop();
-    if (_work_thread.joinable()) {
-        Join();        
-    }
+    Join();
 }
 
 // See Server.h
@@ -109,7 +107,9 @@ void ServerImpl::Stop() {
 // See Server.h
 void ServerImpl::Join() {
     // Wait for work to be complete
-    _work_thread.join();
+    if (_work_thread.joinable()) {
+        _work_thread.join();        
+    }
     close(_server_socket);
 }
 
@@ -159,7 +159,7 @@ void ServerImpl::OnRun() {
             if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
                 pc->OnError();
             } else if (current_event.events & EPOLLRDHUP) {
-                pc->OnClose();
+                pc->Close();
             } else {
                 if (current_event.events & EPOLLIN) {
                     pc->DoRead();
@@ -190,8 +190,6 @@ void ServerImpl::OnRun() {
     }
 
     for (auto single_connection : connection_storage){
-        close(single_connection->_socket);
-        single_connection->OnClose();
         delete single_connection;
     }
     connection_storage.clear();

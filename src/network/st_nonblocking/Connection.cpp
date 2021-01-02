@@ -29,6 +29,10 @@ void Connection::OnClose() {
     _is_alive = false;
 }
 
+void Connection::Close() {
+    _is_alive = false;
+}
+
 // See Connection.h
 void Connection::DoRead() {
     _logger->debug("Do read on {} socket", _socket);
@@ -94,7 +98,11 @@ void Connection::DoRead() {
 
                     _output_queue.push_back(result);
                     if (_output_queue.size() == 1) {
-                        _event.events = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLOUT;
+                        _event.events |= EPOLLOUT;
+                    }
+
+                    if (_output_queue.size() > N){
+                        _event.events &= ~EPOLLIN;
                     }
 
                     // Prepare for the next command
@@ -152,10 +160,14 @@ void Connection::DoWrite() {
     _head_written_count = written_bytes;
 
     if (_output_queue.empty()) {
-        _event.events = EPOLLIN | EPOLLHUP | EPOLLERR;
+        _event.events &= ~EPOLLOUT;
         if (_end_reading) {
             _is_alive = false;
         }
+    }
+
+    if (_output_queue.size() <= _max_output_queue_size){
+        _event.events |= EPOLLIN;
     }
 }
 

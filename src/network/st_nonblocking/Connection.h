@@ -15,18 +15,24 @@ namespace STnonblock {
 class Connection {
 public:
     Connection(int s, std::shared_ptr<Afina::Storage> &ps, std::shared_ptr<spdlog::logger> &pl)
-        : _socket(s), _pStorage(ps), _logger(pl) {
+        : _is_alive(true),  
+          _end_reading(false),
+          _socket(s),
+          _max_output_queue_size(4096),  
+          _read_bytes(0),
+          _head_written_count(0),
+          _pStorage(ps),
+          _logger(pl),
+          _arg_remains(0) {
+
         std::memset(&_event, 0, sizeof(struct epoll_event));
-        _is_alive = true;
-        _end_reading = false;
-        _arg_remains = _read_bytes = _head_written_count = 0;
         _event.data.ptr = this;
         std::memset(_read_buffer, 0, 4096);
     }
 
     ~Connection() {
         OnClose();
-        shutdown(_socket, SHUT_RDWR);
+        close(_socket);
     }
 
     inline bool isAlive() const { return _is_alive; }
@@ -36,6 +42,7 @@ public:
 protected:
     void OnError();
     void OnClose();
+    void Close();
     void DoRead();
     void DoWrite();
 
@@ -48,6 +55,7 @@ private:
     struct epoll_event _event;
 
     std::vector<std::string> _output_queue;
+    size_t _max_output_queue_size;
     char _read_buffer[4096];
     size_t _read_bytes;
     int _head_written_count;
