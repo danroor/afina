@@ -30,11 +30,6 @@ public:
         std::memset(_read_buffer, 0, 4096);
     }
 
-    ~Connection() {
-        OnClose();
-        close(_socket);
-    }
-
     inline bool isAlive() const { return _is_alive; }
 
     void Start();

@@ -21,7 +21,6 @@
 #include <afina/Storage.h>
 #include <afina/logging/Service.h>
 
-#include "Connection.h"
 #include "Utils.h"
 
 namespace Afina {
@@ -97,11 +96,11 @@ void ServerImpl::Stop() {
     }
     shutdown(_server_socket, SHUT_RDWR);
 
-    for (sock : connection_storage) {
-    	delete sock;
+    for (auto single_connection : connection_storage) {
+    	//single_connection->OnClose();
+    	shutdown(single_connection->_socket, SHUT_RDWR);
+    	delete single_connection;
     }
-
-    connection_storage.clear();
 }
 
 // See Server.h
@@ -153,13 +152,13 @@ void ServerImpl::OnRun() {
             }
 
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
-            connection_storage.push_back(pc);
+            connection_storage.insert(pc);
 
             auto old_mask = pc->_event.events;
             if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
                 pc->OnError();
             } else if (current_event.events & EPOLLRDHUP) {
-                pc->Close();
+                pc->OnClose();
             } else {
                 if (current_event.events & EPOLLIN) {
                     pc->DoRead();
@@ -174,14 +173,18 @@ void ServerImpl::OnRun() {
                     _logger->error("Failed to delete connection from epoll");
                 }
 
-                connection_storage.erase(pc);
+                auto pos = std::find(connection_storage.begin(), connection_storage.end(), pc);
+                connection_storage.erase(pos);
+                close(pc->_socket);
                 delete pc;
 
             } else if (pc->_event.events != old_mask) {
                 if (epoll_ctl(epoll_descr, EPOLL_CTL_MOD, pc->_socket, &pc->_event)) {
                     _logger->error("Failed to change connection event mask");
 
-                    connection_storage.erase(pc);
+                    auto pos = std::find(connection_storage.begin(), connection_storage.end(), pc);
+                    connection_storage.erase(pos);
+                    close(pc->_socket);
                     delete pc;
                     
                 }
@@ -190,9 +193,9 @@ void ServerImpl::OnRun() {
     }
 
     for (auto single_connection : connection_storage){
+    	close(single_connection->_socket);
         delete single_connection;
     }
-    connection_storage.clear();
 
     _logger->warn("Acceptor stopped");
 }
@@ -209,7 +212,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
             if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
                 break; // We have processed all incoming connections.
             } else {
-                _logger->error("Failed to accept socket");
+                _logger->error(strerror(errno));//"Failed to accept socket");
                 break;
             }
         }

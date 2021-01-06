@@ -29,10 +29,6 @@ void Connection::OnClose() {
     _is_alive = false;
 }
 
-void Connection::Close() {
-    _is_alive = false;
-}
-
 // See Connection.h
 void Connection::DoRead() {
     _logger->debug("Do read on {} socket", _socket);
@@ -101,7 +97,7 @@ void Connection::DoRead() {
                         _event.events |= EPOLLOUT;
                     }
 
-                    if (_output_queue.size() > N){
+                    if (_output_queue.size() > _max_output_queue_size){
                         _event.events &= ~EPOLLIN;
                     }
 
