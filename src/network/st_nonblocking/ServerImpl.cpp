@@ -212,7 +212,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
             if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
                 break; // We have processed all incoming connections.
             } else {
-                _logger->error(strerror(errno));//"Failed to accept socket");
+                _logger->error("Failed to accept socket");
                 break;
             }
         }
