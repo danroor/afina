@@ -67,8 +67,9 @@ void Worker::Stop() { isRunning = false; }
 
 // See Worker.h
 void Worker::Join() {
-    assert(_thread.joinable());
-    _thread.join();
+    if (_thread.joinable()) {
+        _thread.join();
+    }
 }
 
 // See Worker.h
