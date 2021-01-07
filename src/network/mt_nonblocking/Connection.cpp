@@ -162,7 +162,7 @@ void Connection::DoWrite() {
     _head_written_count = written_bytes;
 
     if (_output_queue.empty()) {
-        _event.events = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
+        _event.events &= ~EPOLLOUT;
         _is_alive.store(false, std::memory_order_relaxed);
     }
 

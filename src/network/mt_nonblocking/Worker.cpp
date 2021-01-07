@@ -120,7 +120,7 @@ void Worker::OnRun() {
             // Rearm connection
             if (pconn->isAlive()) {
                 pconn->_event.events |= EPOLLONESHOT;
-                int epoll_ctl_val;
+                int epoll_ctl_val = 0;
                 if ((epoll_ctl_val = epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, pconn->_socket, &pconn->_event))) {
                     _logger->debug("epoll_ctl failed during connection rearm: error {}", epoll_ctl_val);
                     pconn->OnError();
