@@ -97,6 +97,10 @@ void Connection::DoRead() {
                         _event.events |= EPOLLOUT;
                     }
 
+                    if (_output_queue.size() > _max_output_queue_size){
+                        _event.events &= ~EPOLLIN;
+                    }
+
                     // Prepare for the next command
                     _command_to_execute.reset();
                     _argument_for_command.resize(0);
@@ -108,7 +112,7 @@ void Connection::DoRead() {
             _logger->debug("Connection closed");
             _data_available.store(true, std::memory_order_relaxed);
             std::atomic_thread_fence(std::memory_order_release);
-        } else {
+        } else if (errno != EINTR && errno != EAGAIN) {
             throw std::runtime_error(std::string(strerror(errno)));
         }
     } catch (std::runtime_error &ex) {
@@ -126,7 +130,7 @@ void Connection::DoWrite() {
         return;
     }
     struct iovec tmp[_output_queue.size()];
-    size_t i;
+    size_t i = 0;
     for (i = 0; i < _output_queue.size(); ++i) {
         tmp[i].iov_base = &(_output_queue[i][0]);
         tmp[i].iov_len = _output_queue[i].size();
@@ -138,7 +142,7 @@ void Connection::DoWrite() {
     int written_bytes = writev(_socket, tmp, i);
 
     if (written_bytes <= 0) {
-        if (errno != EINTR && errno != EAGAIN && errno != EPIPE) {
+        if (errno != EINTR && errno != EAGAIN) {
             _is_alive.store(false, std::memory_order_release);
         }
         throw std::runtime_error("Failed to send response");
@@ -161,6 +165,11 @@ void Connection::DoWrite() {
         _event.events = EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLET;
         _is_alive.store(false, std::memory_order_relaxed);
     }
+
+    if (_output_queue.size() <= _max_output_queue_size){
+        _event.events |= EPOLLIN;
+    }
+
     std::atomic_thread_fence(std::memory_order_release);
 }
 

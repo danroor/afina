@@ -16,15 +16,22 @@ namespace MTnonblock {
 class Connection {
 public:
     Connection(int s, std::shared_ptr<Afina::Storage> &ps, std::shared_ptr<spdlog::logger> &pl)
-        : _socket(s), _pStorage(ps), _logger(pl) {
-        std::memset(&_event, 0, sizeof(struct epoll_event));
+        : _socket(s),
+          _max_output_queue_size(4096),  
+          _read_bytes(0),
+          _head_written_count(0),
+          _pStorage(ps),
+          _logger(pl),
+          _arg_remains(0) {
+
         _is_alive.store(true, std::memory_order_release);
         _data_available.store(false, std::memory_order_release);
-        _read_bytes = _head_written_count = 0;
+        std::memset(&_event, 0, sizeof(struct epoll_event));
         _event.data.ptr = this;
+        std::memset(_read_buffer, 0, 4096);
     }
 
-    inline bool isAlive() const { return _is_alive.load(std::memory_order_acquire); }
+    inline bool isAlive() const { return _is_alive.load(std::memory_order_relaxed); }
 
     void Start();
 
@@ -44,6 +51,7 @@ private:
     int _socket;
     struct epoll_event _event;
 
+    size_t _max_output_queue_size;
     std::vector<std::string> _output_queue;
     char _read_buffer[4096];
     size_t _read_bytes;

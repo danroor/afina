@@ -4,6 +4,10 @@
 #include <atomic>
 #include <memory>
 #include <thread>
+#include <set>
+#include <algorithm>
+
+#include "ServerImpl.h"
 
 namespace spdlog {
 class logger;
@@ -27,7 +31,9 @@ namespace MTnonblock {
  */
 class Worker {
 public:
-    Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl);
+    Worker(std::shared_ptr<Afina::Storage> ps,
+           std::shared_ptr<Afina::Logging::Service> pl,
+           ServerImpl *server);
     ~Worker();
 
     Worker(Worker &&);
@@ -72,6 +78,8 @@ private:
 
     // Logger to be used
     std::shared_ptr<spdlog::logger> _logger;
+
+    ServerImpl *_server;
 
     // Flag signals that thread should continue to operate
     std::atomic<bool> isRunning;

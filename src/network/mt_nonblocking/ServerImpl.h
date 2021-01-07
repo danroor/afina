@@ -3,7 +3,7 @@
 
 #include <thread>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include <mutex>
 
 #include "Connection.h"
@@ -54,8 +54,8 @@ private:
     // Socket to accept new connection on, shared between acceptors
     int _server_socket;
 
-    std::unordered_set<Connection *> _connections;
-    std::mutex _set_is_blocked;
+    std::set<Connection *> _connections;
+    std::mutex _connections_set_blocked;
 
     // Threads that accepts new connections, each has private epoll instance
     // but share global server socket
@@ -69,8 +69,6 @@ private:
 
     // threads serving read/write requests
     std::vector<Worker> _workers;
-
-    void delete_from_set(Connection *connection);
 };
 
 } // namespace MTnonblock

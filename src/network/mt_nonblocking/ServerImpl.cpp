@@ -94,14 +94,14 @@ void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) 
 
     _workers.reserve(n_workers);
     for (int i = 0; i < n_workers; i++) {
-        _workers.emplace_back(pStorage, pLogging);
+        _workers.emplace_back(pStorage, pLogging, this);
         _workers.back().Start(_data_epoll_fd);
     }
 
     // Start acceptors
     _acceptors.reserve(n_acceptors);
     for (int i = 0; i < n_acceptors; i++) {
-        _acceptors.emplace_back(&ServerImpl::OnRun);
+        _acceptors.emplace_back(&ServerImpl::OnRun, this);
     }
 }
 
@@ -119,7 +119,7 @@ void ServerImpl::Stop() {
     }
 
     {
-        std::lock_guard<std::mutex> l(_set_is_blocked);
+        std::lock_guard<std::mutex> l(_connections_set_blocked);
         for (auto connection : _connections) {
             shutdown(connection->_socket, SHUT_RD);
         }
@@ -138,7 +138,7 @@ void ServerImpl::Join() {
     }
     _workers.clear();
     {
-        std::lock_guard<std::mutex> l(_set_is_blocked);
+        std::lock_guard<std::mutex> l(_connections_set_blocked);
         for (auto connection : _connections) {
             close(connection->_socket);
             delete connection;
@@ -225,7 +225,7 @@ void ServerImpl::OnRun() {
                         close(pc->_socket);
                         delete pc;
                     } else {
-                        std::lock_guard<std::mutex> l(_set_is_blocked);
+                        std::lock_guard<std::mutex> l(_connections_set_blocked);
                         _connections.emplace(pc);
                     }
                 }
@@ -233,12 +233,6 @@ void ServerImpl::OnRun() {
         }
     }
     _logger->warn("Acceptor stopped");
-}
-void ServerImpl::delete_from_set(Connection *connection) {
-    std::lock_guard<std::mutex> l(_set_is_blocked);
-    _connections.erase(connection);
-    close(connection->_socket);
-    delete connection;
 }
 
 } // namespace MTnonblock
