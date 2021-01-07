@@ -21,14 +21,20 @@ namespace Network {
 namespace MTnonblock {
 
 // See Worker.h
-Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl)
-    : _pStorage(ps), _pLogging(pl), isRunning(false), _epoll_fd(-1) {
-    // TODO: implementation here
-}
+Worker::Worker(std::shared_ptr<Afina::Storage> ps,
+               std::shared_ptr<Afina::Logging::Service> pl,
+               ServerImpl *server)
+    : _pStorage(ps),
+      _pLogging(pl),
+      _server(server),
+      isRunning(false),
+      _epoll_fd(-1) 
+    {}
 
 // See Worker.h
 Worker::~Worker() {
-    // TODO: implementation here
+    Stop();
+    Join();
 }
 
 // See Worker.h
@@ -61,13 +67,14 @@ void Worker::Stop() { isRunning = false; }
 
 // See Worker.h
 void Worker::Join() {
-    assert(_thread.joinable());
-    _thread.join();
+    if (_thread.joinable()) {
+        _thread.join();
+    }
 }
 
 // See Worker.h
 void Worker::OnRun() {
-    assert(_epoll_fd >= 0);
+    assert(_epoll_fd != -1);
     _logger->trace("OnRun");
 
     // Process connection events
@@ -83,9 +90,9 @@ void Worker::OnRun() {
         for (int i = 0; i < nmod; i++) {
             struct epoll_event &current_event = mod_list[i];
 
-            // nullptr is used by server for event_fd "interface", if we got here then server
-            // signals us to wakeup to process some state change, ignore it in INNER loop, react
-            // on changes in OUTHER loop
+            // nullptr is used by server for event_fd "interface", getting here means that the server
+            // sent us a signal to wakeup to process some state change, ignore it in INNER loop, react
+            // on changes in OUTER loop
             if (current_event.data.ptr == nullptr) {
                 continue;
             }
@@ -113,26 +120,33 @@ void Worker::OnRun() {
             // Rearm connection
             if (pconn->isAlive()) {
                 pconn->_event.events |= EPOLLONESHOT;
-                int epoll_ctl_retval;
-                if ((epoll_ctl_retval = epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, pconn->_socket, &pconn->_event))) {
-                    _logger->debug("epoll_ctl failed during connection rearm: error {}", epoll_ctl_retval);
+                int epoll_ctl_val = 0;
+                if ((epoll_ctl_val = epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, pconn->_socket, &pconn->_event))) {
+                    _logger->debug("epoll_ctl failed during connection rearm: error {}", epoll_ctl_val);
                     pconn->OnError();
+                    close(pconn->_socket);
+                    std::lock_guard<std::mutex> l(_server->_connections_set_blocked);
+                    auto pos = std::find(_server->_connections.begin(), _server->_connections.end(), pconn);
+                    _server->_connections.erase(pos);
                     delete pconn;
                 }
             }
             // Or delete closed one
             else {
                 if (epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, pconn->_socket, &pconn->_event)) {
-                    std::cerr << "Failed to delete connection!" << std::endl;
+                    _logger->warn("Failed to delete connection!");
                 }
+                close(pconn->_socket);
+                std::lock_guard<std::mutex> l(_server->_connections_set_blocked);
+                auto pos = std::find(_server->_connections.begin(), _server->_connections.end(), pconn);
+                _server->_connections.erase(pos);
                 delete pconn;
             }
         }
-        // TODO: Select timeout...
     }
     _logger->warn("Worker stopped");
 }
-
+                        
 } // namespace MTnonblock
 } // namespace Network
 } // namespace Afina
