@@ -16,7 +16,6 @@ class Connection {
 public:
     Connection(int s, std::shared_ptr<Afina::Storage> &ps, std::shared_ptr<spdlog::logger> &pl)
         : _is_alive(true),  
-          _end_reading(false),
           _socket(s),
           _max_output_queue_size(4096),  
           _read_bytes(0),
@@ -37,7 +36,6 @@ public:
 protected:
     void OnError();
     void OnClose();
-    void Close();
     void DoRead();
     void DoWrite();
 
@@ -45,7 +43,6 @@ private:
     friend class ServerImpl;
 
     bool _is_alive;
-    bool _end_reading;
     int _socket;
     struct epoll_event _event;
 

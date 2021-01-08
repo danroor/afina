@@ -108,7 +108,7 @@ void Connection::DoRead() {
                 }
             }
         } // while (read_count)
-        _end_reading = true;
+
         if (_read_bytes == 0) {
             _logger->debug("Connection closed");
         } else if (errno != EINTR && errno != EAGAIN) {
@@ -116,7 +116,6 @@ void Connection::DoRead() {
         }
     } catch (std::runtime_error &ex) {
         _logger->error("Failed to process connection on descriptor {}: {}", _socket, ex.what());
-        _end_reading = true;
     }
 }
 
@@ -157,9 +156,6 @@ void Connection::DoWrite() {
 
     if (_output_queue.empty()) {
         _event.events &= ~EPOLLOUT;
-        if (_end_reading) {
-            _is_alive = false;
-        }
     }
 
     if (_output_queue.size() <= _max_output_queue_size){
