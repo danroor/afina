@@ -31,10 +31,13 @@ private:
         char *Low = nullptr;
 
         // coroutine stack end address
-        char *Hight = nullptr;
+        char *High = nullptr;
 
         // coroutine stack copy buffer
         std::tuple<char *, uint32_t> Stack = std::make_tuple(nullptr, 0);
+
+        // shows whether the coroutine is blocked or not
+        bool is_blocked = false;
 
         // Saved coroutine context (registers)
         jmp_buf Environment;
@@ -52,7 +55,7 @@ private:
     /**const int&
      * Current coroutine
      */
-    context *cur_routine;
+    context *cur_coro;
 
     /**
      * List of routines ready to be scheduled. Note that suspended routine ends up here as well
@@ -74,6 +77,9 @@ private:
      */
     unblocker_func _unblocker;
 
+    void delete_elem(context *&head, context *&elem);
+    void add_elem_to_head(context *&head, context *&new_head);
+
 protected:
     /**
      * Save stack of the current coroutine in the given context
@@ -81,7 +87,7 @@ protected:
     void Store(context &ctx);
 
     /**
-     * Restore stack of the given context and pass control to coroutinne
+     * Restore stack of the given context and pass control to coroutine
      */
     void Restore(context &ctx);
 
@@ -89,7 +95,14 @@ protected:
 
 public:
     Engine(unblocker_func unblocker = null_unblocker)
-        : StackBottom(0), cur_routine(nullptr), alive(nullptr), _unblocker(unblocker) {}
+        : StackBottom(nullptr),
+          cur_coro(nullptr),
+          alive(nullptr),
+          blocked(nullptr),
+          idle_ctx(nullptr),
+          _unblocker(unblocker) {}
+
+    ~Engine();
     Engine(Engine &&) = delete;
     Engine(const Engine &) = delete;
 
@@ -110,7 +123,12 @@ public:
      * If routine to pass execution to is not specified (nullptr) then method should behaves like yield. In case
      * if passed routine is the current one method does nothing
      */
-    void sched(void *routine);
+    void sched(void *coro);
+
+    /**
+     * 
+     */
+    void enter(context *ctx);
 
     /**
      * Blocks current routine so that is can't be scheduled anymore
@@ -118,6 +136,7 @@ public:
      *
      * If argument is nullptr then block current coroutine
      */
+
     void block(void *coro = nullptr);
 
     /**
@@ -135,13 +154,13 @@ public:
      * @param pointer to the main coroutine
      * @param arguments to be passed to the main coroutine
      */
-    template <typename... Ta> void start(void (*main)(Ta...), Ta &&... args) {
+    template <typename... Ta> void start(void (*func)(Ta...), Ta &&... args) {
         // To acquire stack begin, create variable on stack and remember its address
         char StackStartsHere;
-        this->StackBottom = &StackStartsHere;
+        StackBottom = &StackStartsHere;
 
-        // Start routine execution
-        void *pc = run(main, std::forward<Ta>(args)...);
+        // Start coroutine execution
+        void *pc = run(func, std::forward<Ta>(args)...);
 
         idle_ctx = new context();
         if (setjmp(idle_ctx->Environment) > 0) {
@@ -150,15 +169,18 @@ public:
             }
 
             // Here: correct finish of the coroutine section
+            cur_coro = idle_ctx;
             yield();
         } else if (pc != nullptr) {
             Store(*idle_ctx);
+            cur_coro = idle_ctx;
             sched(pc);
         }
 
         // Shutdown runtime
+        delete std::get<0>(idle_ctx->Stack);
         delete idle_ctx;
-        this->StackBottom = 0;
+        StackBottom = nullptr;
     }
 
     /**
@@ -166,15 +188,18 @@ public:
      * errors function returns -1
      */
     template <typename... Ta> void *run(void (*func)(Ta...), Ta &&... args) {
-        if (this->StackBottom == 0) {
+        if (StackBottom == nullptr) {
             // Engine wasn't initialized yet
             return nullptr;
         }
 
+        char addr;
+
         // New coroutine context that carries around all information enough to call function
         context *pc = new context();
+        pc->Low = pc->High = &addr;
 
-        // Store current state right here, i.e just before enter new coroutine, later, once it gets scheduled
+        // Store current state right here, i.e. just before entering the new coroutine, later, once it gets scheduled
         // execution starts here. Note that we have to acquire stack of the current function call to ensure
         // that function parameters will be passed along
         if (setjmp(pc->Environment) > 0) {
@@ -196,12 +221,12 @@ public:
                 pc->next->prev = pc->prev;
             }
 
-            if (alive == cur_routine) {
+            if (alive == cur_coro) {
                 alive = alive->next;
             }
 
             // current coroutine finished, and the pointer is not relevant now
-            cur_routine = nullptr;
+            cur_coro = nullptr;
             pc->prev = pc->next = nullptr;
             delete std::get<0>(pc->Stack);
             delete pc;
@@ -218,11 +243,11 @@ public:
         Store(*pc);
 
         // Add routine as alive double-linked list
+        if (alive) {
+            alive->prev = pc;
+        }
         pc->next = alive;
         alive = pc;
-        if (pc->next != nullptr) {
-            pc->next->prev = pc;
-        }
 
         return pc;
     }

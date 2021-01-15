@@ -9,10 +9,9 @@ void _calculator_add(int &result, int left, int right) { result = left + right; 
 
 TEST(CoroutineTest, SimpleStart) {
     Afina::Coroutine::Engine engine;
-
+    
     int result;
     engine.start(_calculator_add, result, 1, 2);
-
     ASSERT_EQ(3, result);
 }
 
