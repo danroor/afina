@@ -50,7 +50,7 @@ void Engine::Store(context &ctx) {
         std::get<0>(ctx.Stack) = new char[stack_size];
         std::get<1>(ctx.Stack) = stack_size;
     }
-    //std::cout << stack_size << std:endl;
+    
     memcpy(std::get<0>(ctx.Stack), ctx.Low, stack_size);
 }
 

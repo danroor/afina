@@ -163,6 +163,8 @@ public:
         void *pc = run(func, std::forward<Ta>(args)...);
 
         idle_ctx = new context();
+        idle_ctx->Low = idle_ctx->High = StackBottom;
+
         if (setjmp(idle_ctx->Environment) > 0) {
             if (alive == nullptr) {
                 _unblocker(*this);
@@ -178,7 +180,7 @@ public:
         }
 
         // Shutdown runtime
-        delete std::get<0>(idle_ctx->Stack);
+        delete[] std::get<0>(idle_ctx->Stack);
         delete idle_ctx;
         StackBottom = nullptr;
     }
@@ -188,16 +190,19 @@ public:
      * errors function returns -1
      */
     template <typename... Ta> void *run(void (*func)(Ta...), Ta &&... args) {
+        char addr;
+        return run_impl(&addr, func, std::forward<Ta>(args)...);
+    }
+
+    template <typename... Ta> void *run_impl(char *addr, void (*func)(Ta...), Ta &&... args) {
         if (StackBottom == nullptr) {
             // Engine wasn't initialized yet
             return nullptr;
         }
 
-        char addr;
-
         // New coroutine context that carries around all information enough to call function
         context *pc = new context();
-        pc->Low = pc->High = &addr;
+        pc->Low = pc->High = addr;
 
         // Store current state right here, i.e. just before entering the new coroutine, later, once it gets scheduled
         // execution starts here. Note that we have to acquire stack of the current function call to ensure
@@ -228,7 +233,7 @@ public:
             // current coroutine finished, and the pointer is not relevant now
             cur_coro = nullptr;
             pc->prev = pc->next = nullptr;
-            delete std::get<0>(pc->Stack);
+            delete[] std::get<0>(pc->Stack);
             delete pc;
 
             // We cannot return here, as this function "returned" once already, so here we must select some other
